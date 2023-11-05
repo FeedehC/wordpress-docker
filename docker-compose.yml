@@ -1,4 +1,4 @@
-version: "3.9"
+version: "3.7"
 
 services:
   wpdb: 
@@ -25,7 +25,7 @@ services:
       - /srv/wordpress-data:/var/www/html
       - ./wordpress.ini:/usr/local/etc/php/conf.d/wordpress.ini
     ports:
-      - "80:80"
+      - "8000:80"
     restart: always
     environment:
       WORDPRESS_DB_HOST: wpdb
