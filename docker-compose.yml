@@ -10,11 +10,11 @@ services:
     environment:
       PUID: 1000
       PGID: 1000
-      TZ: America/Argentina/Cordoba
-      MYSQL_ROOT_PASSWORD: pass
-      MYSQL_DATABASE: wordpress
-      MYSQL_USER: wordpress
-      MYSQL_PASSWORD: pass
+      TZ: "${DB_TIMEZONE}"
+      MYSQL_DATABASE: "${DB_NAME}"
+      MYSQL_USER: "${DB_USER}"
+      MYSQL_PASSWORD: "${DB_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
 
   wordpress:
     depends_on:
@@ -25,29 +25,29 @@ services:
       - /srv/wordpress-data:/var/www/html
       - ./wordpress.ini:/usr/local/etc/php/conf.d/wordpress.ini
     ports:
-      - "80:80"
-      - "443:443"
+      - "${PORT_HTTP}:80"
+      - "${PORT_HTTPS}:443"
     restart: always
     environment:
       WORDPRESS_DB_HOST: wpdb
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: pass
-      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DB_NAME: "${DB_NAME}"
+      WORDPRESS_DB_USER: "${DB_USER}"
+      WORDPRESS_DB_PASSWORD: "${DB_ROOT_PASSWORD}"
 
-#  phpmyadmin:
-#    depends_on:
-#      - wpdb
-#    image: phpmyadmin:latest
-#    container_name: phpmyadmin
-#    environment:
-#      - PMA_ARBITRARY=1
-#      #- PMA_HOST=wpdb
-#      #- PMA_VERBOSE=wp-database
-#      #- PMA_USER=wordpress
-#      #- PMA_PASSWORD=vFvp5345gfdFSDdaDp4%
-#      - HIDE_PHP_VERSION=true
-#    restart: always
-#    ports:
-#      - 9001:80
-#    volumes:
-#      - /sessions
+  phpmyadmin:
+    depends_on:
+      - wpdb
+    image: phpmyadmin:latest
+    container_name: phpmyadmin
+    environment:
+      - PMA_ARBITRARY=1
+      #- PMA_HOST=wpdb
+      #- PMA_VERBOSE=wp-database
+      #- PMA_USER=wordpress
+      #- PMA_PASSWORD=vFvp5345gfdFSDdaDp4%
+      - HIDE_PHP_VERSION=true
+    restart: always
+    ports:
+      - "${PORT_PHPMA}:80"
+    volumes:
+      - /sessions
