@@ -1,53 +1,83 @@
 version: "3.7"
 
 services:
-  wpdb: 
-    image: lscr.io/linuxserver/mariadb:latest
-    volumes:
-      - /srv/wordpress-db:/config
-    restart: always
-    container_name: wpdb
-    environment:
-      PUID: 1000
-      PGID: 1000
-      TZ: "${DB_TIMEZONE}"
-      MYSQL_DATABASE: "${DB_NAME}"
-      MYSQL_USER: "${DB_USER}"
-      MYSQL_PASSWORD: "${DB_PASSWORD}"
-      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
 
   wordpress:
-    depends_on:
-      - wpdb
-    image: wordpress:latest
+    image: wordpress:latest       
     container_name: wordpress
+    expose:
+      - "80"    
+    restart: unless-stopped
+    depends_on:
+      - mysql 
+      - nginx-proxy      
     volumes:
-      - /srv/wordpress-data:/var/www/html
-      - ./wordpress.ini:/usr/local/etc/php/conf.d/wordpress.ini
-    ports:
-      - "${PORT_HTTP}:80"
-      - "${PORT_HTTPS}:443"
-    restart: always
+      - ./html:/var/www/html
+    env_file: .env
     environment:
-      WORDPRESS_DB_HOST: wpdb
-      WORDPRESS_DB_NAME: "${DB_NAME}"
-      WORDPRESS_DB_USER: "${DB_USER}"
-      WORDPRESS_DB_PASSWORD: "${DB_ROOT_PASSWORD}"
+      WORDPRESS_DB_HOST: mysql
+      WORDPRESS_DB_USER: ${MYSQL_USER}
+      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}  
+      WORDPRESS_DB_NAME: ${MYSQL_DATABASE}
+      VIRTUAL_HOST: ${DOMAIN_NAME}        #debe ser un dominio valido y DNS apuntando a este servidor
+      LETSENCRYPT_HOST: ${DOMAIN_NAME}    #debe ser un dominio valido y DNS apuntando a este servidor   
+
+  mysql:
+    image: mariadb:latest
+    container_name: mysql
+    volumes:
+      - ./db_data:/var/lib/mysql
+    expose:
+      - "3306"
+    restart: unless-stopped
+    env_file: .env 
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}    
 
   phpmyadmin:
-    depends_on:
-      - wpdb
     image: phpmyadmin:latest
-    container_name: phpmyadmin
+    container_name: wppma 
+    restart: unless-stopped   
+    depends_on:      
+      - mysql
+    ports:      
+      - "8080:80"        
     environment:
-      - PMA_ARBITRARY=1
-      #- PMA_HOST=wpdb
-      #- PMA_VERBOSE=wp-database
-      #- PMA_USER=wordpress
-      #- PMA_PASSWORD=vFvp5345gfdFSDdaDp4%
-      - HIDE_PHP_VERSION=true
+      PMA_HOST: mysql
+      PMA_USER: ${MYSQL_USER}
+      PMA_PASSWORD: ${MYSQL_PASSWORD} 
+      
+  nginx-proxy:
+    image: jwilder/nginx-proxy:latest
+    container_name: nginx-proxy
     restart: always
     ports:
-      - "${PORT_PHPMA}:80"
+      - "80:80"
+      - "443:443"
     volumes:
-      - /sessions
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - certs:/etc/nginx/certs
+      - vhost.d:/etc/nginx/vhost.d
+      - ./html:/usr/share/nginx/html
+      
+  nginx-proxy-letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion:latest
+    container_name: nginx-proxy-letsencrypt
+    restart: always
+    depends_on:
+      - nginx-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - certs:/etc/nginx/certs
+      - vhost.d:/etc/nginx/vhost.d
+      - ./html:/usr/share/nginx/html
+    environment:
+      - DEFAULT_EMAIL=${LETSENCRYPT_EMAIL}     #debe ser un email valido
+      - NGINX_PROXY_CONTAINER=nginx-proxy
+
+volumes:
+  certs: {}
+  vhost.d: {}    
